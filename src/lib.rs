@@ -32,9 +32,13 @@ extern crate socket2;
 #[doc(hidden)]
 extern crate crossbeam;
 #[doc(hidden)]
+extern crate crossbeam_deque;
+#[doc(hidden)]
 extern crate generator;
 #[doc(hidden)]
 extern crate may_queue;
+#[doc(hidden)]
+extern crate num_cpus;
 #[allow(unused_extern_crates)]
 #[doc(hidden)]
 extern crate smallvec;

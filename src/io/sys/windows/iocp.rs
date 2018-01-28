@@ -4,7 +4,8 @@ use std::{io, ptr};
 use std::os::windows::io::AsRawSocket;
 use yield_now::set_co_para;
 use coroutine_impl::CoroutineImpl;
-use timeout_list::{now, ns_to_dur, TimeOutList, TimeoutHandle};
+use timeout_list::{ns_to_dur, TimeOutList, TimeoutHandle};
+use scheduler::get_scheduler;
 
 use miow::iocp::{CompletionPort, CompletionStatus};
 use winapi::shared::ntdef::*;
@@ -67,25 +68,21 @@ pub struct Selector {
     /// The actual completion port that's used to manage all I/O
     port: CompletionPort,
     timer_list: TimerList,
-    schedule_policy: fn(CoroutineImpl),
 }
 
 impl Selector {
-    pub fn new(_io_workers: usize, schedule_policy: fn(CoroutineImpl)) -> io::Result<Selector> {
-        // only let one thread working, other threads blocking, this is more efficient
+    pub fn new() -> io::Result<Selector> {
         CompletionPort::new(1).map(|cp| Selector {
             port: cp,
             timer_list: TimerList::new(),
-            schedule_policy,
         })
     }
 
     pub fn select(
         &self,
-        _id: usize,
         events: &mut [SysEvent],
-        timeout: Option<u64>,
-    ) -> io::Result<Option<u64>> {
+        timeout: Option<u64>
+    ) -> io::Result<()> {
         let timeout = timeout.map(|t| ns_to_dur(t));
         // info!("select; timeout={:?}", timeout);
         let n = match self.port.get_many(events, timeout) {
@@ -94,6 +91,7 @@ impl Selector {
             Err(e) => return Err(e),
         };
 
+        let scheduler = get_scheduler();
         for status in events[..n].iter() {
             // need to check the status for each io
             let overlapped = status.overlapped();
@@ -154,12 +152,13 @@ impl Selector {
             }
 
             // schedule the coroutine
-            (self.schedule_policy)(co);
+            scheduler.schedule(co);
         }
+        Ok(())
 
         // deal with the timer list
-        let next_expire = self.timer_list.schedule_timer(now(), &timeout_handler);
-        Ok(next_expire)
+        // let next_expire = self.timer_list.schedule_timer(now(), &timeout_handler);
+        // Ok(next_expire)
     }
 
     // this will post an os event so that we can wakeup the event loop

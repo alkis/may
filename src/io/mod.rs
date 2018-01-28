@@ -8,13 +8,10 @@ pub(crate) mod sys;
 #[path = "sys/windows/mod.rs"]
 pub(crate) mod sys;
 
-mod event_loop;
-
 use std::io;
 use coroutine_impl::is_coroutine;
 
-pub(crate) use self::event_loop::EventLoop;
-pub(crate) use self::sys::{add_socket, cancel, net, IoData, Selector};
+pub(crate) use self::sys::{add_socket, cancel, net, IoData, Selector, SysEvent};
 
 pub trait AsIoData {
     fn as_io_data(&self) -> &IoData;
